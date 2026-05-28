@@ -1,10 +1,16 @@
 import SwiftUI
 
-
 struct PopoverView: View {
     enum Tab: String, CaseIterable, Identifiable {
         case timer, stats, blocks
         var id: String { rawValue }
+        var icon: String {
+            switch self {
+            case .timer: return "timer"
+            case .stats: return "chart.bar.fill"
+            case .blocks: return "shield.lefthalf.filled"
+            }
+        }
         var title: String {
             switch self {
             case .timer: return "Timer"
@@ -19,17 +25,6 @@ struct PopoverView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            Picker("", selection: $tab) {
-                ForEach(Tab.allCases) { t in
-                    Text(t.title).tag(t)
-                }
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .padding(12)
-
-            Divider()
-
             Group {
                 switch tab {
                 case .timer: TimerView()
@@ -38,8 +33,36 @@ struct PopoverView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            Divider()
+
+            HStack(spacing: 0) {
+                ForEach(Tab.allCases) { t in
+                    tabButton(t)
+                }
+            }
+            .padding(.vertical, 6)
+            .background(.background.secondary)
         }
-        .frame(width: 300, height: 400)
+        .frame(width: 320, height: 400)
         .onAppear { engine.rolloverCounterIfNeeded() }
+    }
+
+    private func tabButton(_ t: Tab) -> some View {
+        Button {
+            tab = t
+        } label: {
+            VStack(spacing: 3) {
+                Image(systemName: t.icon)
+                    .font(.system(size: 14, weight: .medium))
+                Text(t.title)
+                    .font(.system(size: 10, weight: .medium))
+            }
+            .foregroundStyle(tab == t ? Color.accentColor : Color.secondary)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 4)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 }

@@ -18,154 +18,226 @@ struct BlockListView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 14) {
                 if isLocked {
-                    lockedBanner
+                    banner(.locked)
                 }
                 if !helperInstalled {
-                    setupBanner
+                    banner(.setup)
                 }
 
-                section(title: "Sites") {
-                    HStack {
-                        TextField("youtube.com", text: $newDomain)
-                            .textFieldStyle(.roundedBorder)
-                            .onSubmit(addSite)
-                            .disabled(isLocked)
-                        Button("Add", action: addSite)
-                            .disabled(isLocked || cleanedDomain.isEmpty)
-                    }
-                    if sites.isEmpty {
-                        emptyHint("No blocked sites yet.")
-                    } else {
-                        ForEach(sites) { site in
-                            siteRow(site)
-                        }
-                    }
-                }
-
-                section(title: "Apps") {
-                    Button {
-                        pickApp()
-                    } label: {
-                        Label("Add App…", systemImage: "plus")
-                    }
-                    .disabled(isLocked)
-                    if apps.isEmpty {
-                        emptyHint("No blocked apps yet.")
-                    } else {
-                        ForEach(apps) { app in
-                            appRow(app)
-                        }
-                    }
-                }
+                sitesSection
+                appsSection
             }
-            .padding()
+            .padding(16)
         }
-    }
-
-    private var lockedBanner: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "lock.fill")
-            Text("Blocks are locked during focus.")
-                .font(.subheadline)
-            Spacer()
-        }
-        .padding(10)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.accentColor.opacity(0.15))
-        .cornerRadius(8)
     }
 
     // MARK: - Sections
 
-    @ViewBuilder
-    private func section<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
+    private var sitesSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(title).font(.headline)
-            content()
+            sectionHeader("Sites", count: sites.count)
+
+            HStack(spacing: 6) {
+                TextField("example.com", text: $newDomain)
+                    .textFieldStyle(.roundedBorder)
+                    .controlSize(.small)
+                    .onSubmit(addSite)
+                    .disabled(isLocked)
+                Button("Add", action: addSite)
+                    .controlSize(.small)
+                    .disabled(isLocked || cleanedDomain.isEmpty)
+            }
+
+            if sites.isEmpty {
+                emptyHint("No blocked sites yet")
+            } else {
+                groupedList(sites) { siteRow($0) }
+            }
         }
     }
 
-    private var setupBanner: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Label("Site blocking needs a one-time setup", systemImage: "exclamationmark.triangle.fill")
-                .font(.subheadline.weight(.semibold))
-            Text("Run this once in Terminal:")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            Text("bash ~/pomodoro/setup-sudoers.sh")
-                .font(.system(.caption, design: .monospaced))
-                .textSelection(.enabled)
-            Button("I've done it — re-check") {
-                helperInstalled = HostsManager().isInstalled
+    private var appsSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            sectionHeader("Apps", count: apps.count)
+
+            Button {
+                pickApp()
+            } label: {
+                Label("Add App…", systemImage: "plus")
             }
             .controlSize(.small)
+            .disabled(isLocked)
+
+            if apps.isEmpty {
+                emptyHint("No blocked apps yet")
+            } else {
+                groupedList(apps) { appRow($0) }
+            }
         }
-        .padding(10)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.yellow.opacity(0.15))
-        .cornerRadius(8)
+    }
+
+    private func sectionHeader(_ title: String, count: Int) -> some View {
+        HStack(spacing: 6) {
+            Text(title.uppercased())
+                .font(.system(size: 10, weight: .semibold))
+                .tracking(1.0)
+                .foregroundStyle(.secondary)
+            if count > 0 {
+                Text("\(count)")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 1)
+                    .background(Color.secondary.opacity(0.15), in: Capsule())
+            }
+            Spacer()
+        }
+    }
+
+    @ViewBuilder
+    private func groupedList<T: Identifiable, RowContent: View>(
+        _ items: [T],
+        @ViewBuilder row: @escaping (T) -> RowContent
+    ) -> some View {
+        VStack(spacing: 0) {
+            ForEach(Array(items.enumerated()), id: \.element.id) { idx, item in
+                if idx > 0 {
+                    Divider().padding(.leading, 10)
+                }
+                row(item)
+            }
+        }
+        .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+    }
+
+    // MARK: - Banners
+
+    enum BannerKind { case locked, setup }
+
+    @ViewBuilder
+    private func banner(_ kind: BannerKind) -> some View {
+        switch kind {
+        case .locked:
+            HStack(spacing: 8) {
+                Image(systemName: "lock.fill")
+                    .foregroundStyle(.tint)
+                Text("Locked during focus")
+                    .font(.subheadline)
+                Spacer()
+            }
+            .padding(10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.accentColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
+        case .setup:
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.orange)
+                    Text("Site blocking needs setup")
+                        .font(.subheadline.weight(.semibold))
+                }
+                Text("Run once in Terminal:")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text("bash setup-sudoers.sh")
+                    .font(.system(.caption, design: .monospaced))
+                    .textSelection(.enabled)
+                Button("Re-check") {
+                    helperInstalled = HostsManager().isInstalled
+                }
+                .controlSize(.small)
+                .padding(.top, 2)
+            }
+            .padding(10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
+        }
     }
 
     private func emptyHint(_ text: String) -> some View {
-        Text(text)
-            .font(.caption)
-            .foregroundStyle(.secondary)
-            .padding(.vertical, 4)
+        HStack {
+            Spacer()
+            Text(text)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Spacer()
+        }
+        .padding(.vertical, 14)
+        .background(Color.secondary.opacity(0.05), in: RoundedRectangle(cornerRadius: 8))
     }
 
     // MARK: - Rows
 
     private func siteRow(_ site: BlockedSite) -> some View {
-        HStack {
+        HStack(spacing: 10) {
             Toggle("", isOn: Binding(
                 get: { site.enabled },
                 set: { site.enabled = $0; try? ctx.save() }
             ))
             .labelsHidden()
+            .toggleStyle(.switch)
+            .controlSize(.small)
             .disabled(isLocked)
+
             Text(site.domain)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .foregroundStyle(isLocked ? .secondary : .primary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+
             Button {
                 ctx.delete(site)
                 try? ctx.save()
             } label: {
-                Image(systemName: "trash")
+                Image(systemName: "xmark.circle.fill")
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(.secondary)
             }
-            .buttonStyle(.borderless)
-            .foregroundStyle(.secondary)
+            .buttonStyle(.plain)
             .disabled(isLocked)
         }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
     }
 
     private func appRow(_ app: BlockedApp) -> some View {
-        HStack {
+        HStack(spacing: 10) {
             Toggle("", isOn: Binding(
                 get: { app.enabled },
                 set: { app.enabled = $0; try? ctx.save() }
             ))
             .labelsHidden()
+            .toggleStyle(.switch)
+            .controlSize(.small)
             .disabled(isLocked)
-            VStack(alignment: .leading, spacing: 2) {
+
+            VStack(alignment: .leading, spacing: 1) {
                 Text(app.name)
+                    .lineLimit(1)
                 Text(app.bundleID)
                     .font(.caption2)
                     .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .foregroundStyle(isLocked ? .secondary : .primary)
+
             Button {
                 ctx.delete(app)
                 try? ctx.save()
             } label: {
-                Image(systemName: "trash")
+                Image(systemName: "xmark.circle.fill")
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(.secondary)
             }
-            .buttonStyle(.borderless)
-            .foregroundStyle(.secondary)
+            .buttonStyle(.plain)
             .disabled(isLocked)
         }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
     }
 
     // MARK: - Actions

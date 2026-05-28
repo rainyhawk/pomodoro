@@ -12,10 +12,16 @@ struct StatsView: View {
     }
 
     private var weekData: [DayStat] {
-        let calendar = Calendar.current
+        // Show the Sunday→Saturday week containing today, regardless of locale.
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.firstWeekday = 1
         let today = calendar.startOfDay(for: Date())
+        let daysFromSunday = calendar.component(.weekday, from: today) - 1
+        guard let sunday = calendar.date(byAdding: .day, value: -daysFromSunday, to: today) else {
+            return []
+        }
         let days: [Date] = (0..<7).compactMap {
-            calendar.date(byAdding: .day, value: -(6 - $0), to: today)
+            calendar.date(byAdding: .day, value: $0, to: sunday)
         }
 
         return days.map { day in
@@ -39,18 +45,13 @@ struct StatsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("This Week")
-                        .font(.headline)
-                    Text("\(totalMinutesThisWeek) min total · \(dailyAverageMinutes) min/day avg")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
+            HStack(alignment: .top, spacing: 24) {
+                metric(label: "This Week", value: totalMinutesThisWeek)
+                metric(label: "Avg / Day", value: dailyAverageMinutes)
                 Spacer()
             }
-            .padding(.horizontal)
-            .padding(.top, 12)
+            .padding(.horizontal, 16)
+            .padding(.top, 16)
 
             Chart(weekData) { stat in
                 BarMark(
@@ -58,28 +59,45 @@ struct StatsView: View {
                     y: .value("Minutes", stat.focusMinutes)
                 )
                 .foregroundStyle(Color.accentColor.gradient)
-                .cornerRadius(4)
+                .cornerRadius(3)
             }
             .chartXAxis {
-                AxisMarks(values: .stride(by: .day)) { value in
+                AxisMarks(values: .stride(by: .day)) { _ in
                     AxisValueLabel(format: .dateTime.weekday(.narrow))
-                    AxisGridLine()
+                        .font(.system(size: 10))
                 }
             }
             .chartYAxis {
-                AxisMarks { value in
+                AxisMarks(position: .leading) { value in
                     AxisValueLabel {
                         if let m = value.as(Double.self) {
-                            Text("\(Int(m))m")
+                            Text("\(Int(m))m").font(.system(size: 10))
                         }
                     }
-                    AxisGridLine()
+                    AxisGridLine().foregroundStyle(Color.secondary.opacity(0.15))
                 }
             }
             .frame(height: 220)
-            .padding(.horizontal)
+            .padding(.horizontal, 16)
 
             Spacer()
+        }
+    }
+
+    private func metric(label: String, value: Int) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label.uppercased())
+                .font(.system(size: 10, weight: .semibold))
+                .tracking(1.0)
+                .foregroundStyle(.secondary)
+            HStack(alignment: .firstTextBaseline, spacing: 3) {
+                Text("\(value)")
+                    .font(.system(size: 26, weight: .light, design: .rounded))
+                    .monospacedDigit()
+                Text("min")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
     }
 }
