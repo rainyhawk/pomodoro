@@ -80,9 +80,19 @@ final class TimerEngine {
         let savedRaw = UserDefaults.standard.string(forKey: Self.presetKey)
         self.preset = PomodoroPreset(rawValue: savedRaw ?? "") ?? .p25_5
         self.remaining = self.preset.focusDuration
+        self.completedFocusBlocks = Self.fetchTodayCompletedFocusBlocks(modelContext: modelContext)
         // Clear any stale blocks left over from a prior crash / force-quit.
         blocker.stopBlocking()
         requestNotificationPermissionIfNeeded()
+    }
+
+    private static func fetchTodayCompletedFocusBlocks(modelContext: ModelContext) -> Int {
+        let today = Calendar.current.startOfDay(for: Date())
+        let focusRaw = SessionType.focus.rawValue
+        let descriptor = FetchDescriptor<Session>(
+            predicate: #Predicate { $0.completed && $0.startedAt >= today && $0.typeRaw == focusRaw }
+        )
+        return (try? modelContext.fetchCount(descriptor)) ?? 0
     }
 
     // MARK: - Public controls
