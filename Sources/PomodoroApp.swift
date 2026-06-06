@@ -8,7 +8,9 @@ struct PomodoroApp: App {
 
     init() {
         let schema = Schema([Session.self, BlockedSite.self, BlockedApp.self])
-        let config = ModelConfiguration(schema: schema)
+        let storeDir = URL.applicationSupportDirectory.appending(path: "Pomodoro", directoryHint: .isDirectory)
+        try? FileManager.default.createDirectory(at: storeDir, withIntermediateDirectories: true)
+        let config = ModelConfiguration(schema: schema, url: storeDir.appending(path: "default.store"))
         let container: ModelContainer
         do {
             container = try ModelContainer(for: schema, configurations: [config])
